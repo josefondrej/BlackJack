@@ -68,7 +68,6 @@ public class GameState implements Cloneable{
 	
 	/**
 	 * Generuj nové stavy po splitu. 
-	 * @throws CloneNotSupportedException 
 	 */
 	public GameState[] split(int c1, int c2) throws CloneNotSupportedException{
 		GameState state1 = (GameState) this.clone();
