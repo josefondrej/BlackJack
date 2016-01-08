@@ -1,9 +1,17 @@
 package maxExpectation;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.IntStream;
 
-public class GameState implements Cloneable{
+public class GameState implements Cloneable, Callable{
 	int[] dealerCards;				// dealerovy karty
 	int dealerSum;					// souèet hodnot dealerových karet
 	boolean dealerSoft;				// souèet dealerových karet je mìkký
@@ -14,6 +22,7 @@ public class GameState implements Cloneable{
 	int packNr;						// poèet karet v balíèku
 	boolean doubledDown;			// byla situace vytvoøena zdvojením sázky?
 	int splitted;					// kolikrát byl proveden split, než nastala situace
+	public boolean parall; 			// paralelizuj?
 	
 	/**
 	 * Naklonuje stav hry.
@@ -90,6 +99,9 @@ public class GameState implements Cloneable{
 		state1.actCounts();
 		state2.actCounts();
 		
+		state1.parall = true;
+		state2.parall = true;
+		
 		return new GameState[]{state1, state2};
 	} 
 	
@@ -145,6 +157,7 @@ public class GameState implements Cloneable{
 		this.packCards = pack;
 		this.doubledDown = doubled;
 		this.splitted = splitted;
+		this.parall = false;
 		packNr = IntStream.of(packCards).sum();
 		
 		actCounts();
@@ -226,13 +239,27 @@ public class GameState implements Cloneable{
 	
 	/**
 	 * Oèekávaná hodnota zisku hráèe, pokud se rozhodne vzít další kartu. 
+	 * @throws ExecutionException 
+	 * @throws InterruptedException 
 	 */
-	public double hitE() throws CloneNotSupportedException{
+	public double hitE() throws CloneNotSupportedException, InterruptedException, ExecutionException{
 		double E = 0;
-		for(int i = 0; i<10; i++){
-			if(packCards[i]==0) continue;
-			E += packCards[i]*iPlus(i+1).E().getExp()/packNr;
-		}
+	    
+		if(parall){
+			ExecutorService pool = Executors.newFixedThreadPool(10);
+		    ArrayList<Future<Double>> set = new ArrayList<Future<Double>>();
+		    for(int i = 0; i<10; i++){
+		    	Future<Double> fut = pool.submit(iPlus(i+1));
+		    	set.add(fut);
+		    }
+		    
+		    for(int i = 0; i<10; i++) E+=packCards[i]*set.get(i).get()/packNr;
+	    }else{
+	    	for(int i = 0; i<10; i++){
+				if(packCards[i]==0) continue;
+				E += packCards[i]*iPlus(i+1).E().getExp()/packNr;
+			}
+	    }
 		//print();
 		return E;
 	}
@@ -253,8 +280,10 @@ public class GameState implements Cloneable{
 	/**
 	 * Oèekávaná hodnota zisku hráèe, pokud provede split.
 	 * @throws CloneNotSupportedException 
+	 * @throws ExecutionException 
+	 * @throws InterruptedException 
 	 */
-	public double splitE() throws CloneNotSupportedException{
+	public double splitE() throws CloneNotSupportedException, InterruptedException, ExecutionException{
 		double E = 0;
 			for(int i = 0; i<10; i++){
 				if(packCards[i]==0) continue;
@@ -270,8 +299,10 @@ public class GameState implements Cloneable{
 
 	/**
 	 * Oèekávaná hodnota zisku hráèe za dané situace.
+	 * @throws ExecutionException 
+	 * @throws InterruptedException 
 	 */
-	public ResE E() throws CloneNotSupportedException{
+	public ResE E() throws CloneNotSupportedException, InterruptedException, ExecutionException{
 		if(mySum>21) return new ResE(-1, 'x');
 		char[] moves = possibleMoves();
 		double maxVal = Double.NEGATIVE_INFINITY;
@@ -293,6 +324,11 @@ public class GameState implements Cloneable{
 		}
 		
 		return new ResE(maxVal, action);
+	}
+
+	@Override
+	public Object call() throws Exception {
+		return E().getExp();
 	}
 	
 }

@@ -1,8 +1,10 @@
 package maxExpectation;
 
+import java.util.concurrent.ExecutionException;
+
 public class PerfectBJ {
 
-	public static void main(String[] args) throws CloneNotSupportedException {
+	public static void main(String[] args) throws CloneNotSupportedException, InterruptedException, ExecutionException {
 
 		int[][] hardPairs = new int[][]{
 			{2, 3},
@@ -67,7 +69,7 @@ public class PerfectBJ {
 						new int[]{32, 32, 32, 32, 32, 32, 32, 32, 32, 128}, 
 						false, 
 						0);
-				
+				state.parall = true;
 				System.out.print(state.E().getAct()+"\t");
 			}
 			System.out.println();
